@@ -14,14 +14,17 @@ hardware.
 
 ## Status
 
-**Qwen-Image-Edit-Angles is fully implemented.** FLUX.1-Kontext, OmniGen2
-and DeepGen are adapter *stubs* -- the `PipelineAdapter` interface is
-defined and documented for each, pointing at the reference implementation
-to port from in their own sibling projects (`Flux.1/`, `OmniGen2/`,
-`DeepGen/`), but calling them raises `NotImplementedError` until someone
-does that porting work. See `src/cachezero/pipelines/{flux_kontext,
-omnigen2, deepgen}.py` docstrings for exactly what to port and the facts
-already known from benchmarking them outside this framework.
+**All 4 pipelines are implemented**: Qwen-Image-Edit-Angles, FLUX.1-Kontext,
+OmniGen2 and DeepGen 1.0. All four have `precompute`/`finetune_cached`
+verified on real hardware against their original `*_bench.py` scripts
+(timing/VRAM parity within normal run-to-run noise); `live` is verified for
+Qwen/FLUX/OmniGen2 and `data_parallel` (ZeRO-2 and DDP) for Qwen.
+
+Verified so far on **PopOS-IA** (2x RTX 5070Ti) and **BULL** (2x Tesla
+V100, Qwen only). FLUX.1-Kontext/OmniGen2/DeepGen have not yet been run on
+BULL/Volta -- that is a planned follow-up phase, since none of their
+numeric behavior on Volta hardware has ever been tested (unlike Qwen,
+which needed real fp16/cuDNN workarounds there, see `hardware.py`).
 
 ## Install
 
@@ -31,9 +34,16 @@ pip install -e ".[zero2]"        # + DeepSpeed, for --parallel zero2 (the defaul
 pip install -e ".[dev]"          # + pytest
 ```
 
-Requires `QWEN_BASE_MODEL_PATH` and `QWEN_FUSED_TRANSFORMER_PATH` set (same
-convention as `training_from_jupyter/qwen_bench_utils.py`) to use the Qwen
-adapter.
+Each adapter needs one or two env vars pointing at model weights or a repo
+checkout (the `omnigen2`/`deepgen_pipeline` packages aren't on PyPI, so
+their repos must be cloned separately):
+
+| Pipeline | Env var(s) |
+|---|---|
+| `qwen_image_edit` | `QWEN_BASE_MODEL_PATH`, `QWEN_FUSED_TRANSFORMER_PATH` |
+| `flux_kontext` | none (pulls `black-forest-labs/FLUX.1-Kontext-dev` from HF, gated -- needs an authorized HF token) |
+| `omnigen2` | `OMNIGEN2_REPO_PATH` (checkout of the `OmniGen2` repo) |
+| `deepgen` | `DEEPGEN_REPO_PATH` (checkout of the `deepgenteam/deepgen` repo) |
 
 **Known environment gotcha for `--parallel ddp`**: some `pip` environments
 have both `nvidia-nccl-cu12` and `nvidia-nccl-cu13` installed, which install
@@ -77,6 +87,16 @@ deepspeed --num_gpus=2 --module cachezero.cli run --pipeline qwen_image_edit \
 # ...or DDP instead of ZeRO-2 (same phase, different data-parallel backend)
 torchrun --nproc_per_node=2 -m cachezero.cli run --pipeline qwen_image_edit \
     --phase data_parallel --parallel ddp --precomputed-dir ./precomputed_bench --steps 100
+
+# FLUX.1-Kontext/OmniGen2/DeepGen all use the same LLVIP RGB->thermal task
+# and dataset layout -- --dataset-root points at the LLVIP root (containing
+# either visible_train/infrared_train or visible/train + infrared/train).
+cachezero run --pipeline flux_kontext --phase precompute \
+    --dataset-root /path/to/LLVIP --num-samples 50 --precomputed-dir ./flux_precomputed
+cachezero run --pipeline omnigen2 --phase finetune_cached \
+    --precomputed-dir ./omnigen2_precomputed --precision none --steps 20 --gradient-checkpointing on
+cachezero run --pipeline deepgen --phase live \
+    --dataset-root /path/to/LLVIP --num-samples 20 --steps 10 --gradient-checkpointing on
 ```
 
 On Volta GPUs (e.g. BULL's V100s) `--disable_cudnn`/`fp16`/`fp32 NF4 compute`
@@ -103,10 +123,12 @@ original `*_bench.py` scripts' reports) to `--report-path`, or
   dependency. Both share `ParallelBackend.shard_batch` so a comparison
   between them is always apples-to-apples (same samples-per-step on each
   side).
-- **Nothing in `training_from_jupyter/` or `qwenimage/` was modified** --
-  this package copies and adapts the already-measured logic, it doesn't
-  import from those directories, so the paper's existing results stay
-  reproducible exactly as measured.
+- **Standalone repo, no dependency on the paper's own experiment scripts**
+  (`Qwen_JoS/training_from_jupyter/`, `Flux.1/`, `OmniGen2/`,
+  `DeepGen/precompute_live_zero2_bench/`, etc.) -- each adapter copies and
+  adapts the already-measured logic from those sibling projects rather than
+  importing it, so neither repo depends on the other and the paper's
+  existing results stay reproducible exactly as measured.
 
 ## Tests
 
