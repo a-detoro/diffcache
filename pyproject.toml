@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cachezero"
+name = "diffcache"
 version = "0.1.0"
 description = "Precompute+cache frozen encoders, quantize the trainable DiT via QLoRA, and reclaim the freed GPU for ZeRO-2/DDP data parallelism -- a reusable framework for the JSC paper's methodology."
 readme = "README.md"
@@ -22,10 +22,13 @@ dependencies = [
 
 [project.optional-dependencies]
 zero2 = ["deepspeed>=0.14.5"]
+omnigen2 = ["einops", "torchdiffeq"]
+deepgen = ["einops", "safetensors"]
+all = ["deepspeed>=0.14.5", "einops", "torchdiffeq", "safetensors"]
 dev = ["pytest"]
 
 [project.scripts]
-cachezero = "cachezero.cli:main"
+diffcache = "diffcache.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cachezero"]
+packages = ["src/diffcache"]

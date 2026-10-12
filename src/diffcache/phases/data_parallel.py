@@ -6,8 +6,8 @@ generalized over the backend (`parallel.zero.ZeroBackend` by default,
 `ParallelEngine` -- see `parallel/base.py`.
 
 Launch with the launcher matching `run_config.parallel.backend`:
-    deepspeed --num_gpus=N -m cachezero.cli run --parallel zero2 ...
-    torchrun --nproc_per_node=N -m cachezero.cli run --parallel ddp ...
+    deepspeed --num_gpus=N -m diffcache.cli run --parallel zero2 ...
+    torchrun --nproc_per_node=N -m diffcache.cli run --parallel ddp ...
 Both set RANK/WORLD_SIZE/LOCAL_RANK, which this phase and both backends read
 from the environment.
 """
@@ -113,7 +113,7 @@ def run(run_config: RunConfig) -> dict:
     )
     return write_report(
         report_base,
-        title=f"cachezero -- data_parallel ({run_config.pipeline}, backend={run_config.parallel.backend}, "
+        title=f"diffcache -- data_parallel ({run_config.pipeline}, backend={run_config.parallel.backend}, "
               f"world_size={engine.world_size})",
         config={
             "pipeline": run_config.pipeline, "steps": n,

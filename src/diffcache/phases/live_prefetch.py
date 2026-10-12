@@ -107,7 +107,7 @@ def run(run_config: RunConfig, device_encode: str = "cuda:0", device_train: str 
     )
     return write_report(
         report_base,
-        title=f"cachezero -- live baseline with prefetch ({run_config.pipeline})",
+        title=f"diffcache -- live baseline with prefetch ({run_config.pipeline})",
         config={
             "pipeline": run_config.pipeline, "steps": run_config.steps, "batch_size": run_config.batch_size,
             "device_encode": device_encode, "device_train": device_train,

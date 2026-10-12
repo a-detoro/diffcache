@@ -88,7 +88,7 @@ def run(run_config: RunConfig, device: str = "cuda:0") -> dict:
     )
     return write_report(
         report_base,
-        title=f"cachezero -- finetune_cached, 1 GPU ({run_config.pipeline}, quantize={run_config.precision.quant_type})",
+        title=f"diffcache -- finetune_cached, 1 GPU ({run_config.pipeline}, quantize={run_config.precision.quant_type})",
         config={
             "pipeline": run_config.pipeline, "steps": n, "batch_size": run_config.batch_size,
             "precomputed_samples": n_samples, "device_name": torch.cuda.get_device_name(device),

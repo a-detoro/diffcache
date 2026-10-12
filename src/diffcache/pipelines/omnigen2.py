@@ -120,7 +120,7 @@ class OmniGen2Adapter(PipelineAdapter):
         # finetune_live_multigpu.py always splits them across 2 GPUs on
         # PopOS-IA, same as FLUX's -- no single-GPU live variant exists for
         # this pipeline, unlike DeepGen's). Confirmed empirically during
-        # this port's own verification (see project_cachezero_framework
+        # this port's own verification (see project_diffcache_framework
         # memory). Revisit for BULL's 32GB V100s later.
         return True
 

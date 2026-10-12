@@ -8,7 +8,7 @@ batch-size-confound correction in project_qwen_bull_benchmarks) -- plain DDP
 is expected to land close to ZeRO-2 in practice for this workload, which is
 worth letting users verify themselves rather than asserting.
 
-Launch with `torchrun --nproc_per_node=N -m cachezero.cli ...`, which sets
+Launch with `torchrun --nproc_per_node=N -m diffcache.cli ...`, which sets
 RANK/WORLD_SIZE/LOCAL_RANK the same way `deepspeed --num_gpus=N` does for
 `ZeroBackend` -- see the package README.
 """

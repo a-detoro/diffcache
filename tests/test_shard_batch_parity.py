@@ -5,8 +5,8 @@ lesson in project_omnigen2_popos_bench. These tests don't need a GPU or
 deepspeed installed: both backend classes only import their heavy
 dependencies lazily, inside `setup()`.
 """
-from cachezero.parallel.ddp import DDPBackend
-from cachezero.parallel.zero import ZeroBackend
+from diffcache.parallel.ddp import DDPBackend
+from diffcache.parallel.zero import ZeroBackend
 
 PATHS = [f"sample_{i:04d}.pt" for i in range(12)]
 
