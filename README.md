@@ -1,4 +1,4 @@
-# cachezero
+# DiffCache
 
 Precompute+cache the frozen encoders of an image-editing diffusion pipeline,
 quantize the trainable DiT via QLoRA, and reclaim the GPU that caching freed
@@ -14,14 +14,17 @@ hardware.
 
 ## Status
 
-**Qwen-Image-Edit-Angles is fully implemented.** FLUX.1-Kontext, OmniGen2
-and DeepGen are adapter *stubs* -- the `PipelineAdapter` interface is
-defined and documented for each, pointing at the reference implementation
-to port from in their own sibling projects (`Flux.1/`, `OmniGen2/`,
-`DeepGen/`), but calling them raises `NotImplementedError` until someone
-does that porting work. See `src/cachezero/pipelines/{flux_kontext,
-omnigen2, deepgen}.py` docstrings for exactly what to port and the facts
-already known from benchmarking them outside this framework.
+**This branch (`master`): Qwen-Image-Edit-Angles only**, fully implemented
+and verified against the original `*_bench.py` scripts (timing/VRAM parity
+within normal run-to-run noise) on BULL (2x Tesla V100-PCIE-32GB, Volta,
+SLURM cluster) -- `precompute`, `finetune_cached`, `live`, `live_prefetch`
+and `data_parallel` (both ZeRO-2 and DDP) all pass.
+
+FLUX.1-Kontext-dev, OmniGen2 and DeepGen 1.0 exist here only as adapter
+*stubs* (`src/diffcache/pipelines/{flux_kontext,omnigen2,deepgen}.py`) --
+calling them raises `NotImplementedError`. **All 3 are fully implemented
+and verified (both PopOS-IA/Blackwell and BULL/Volta, all 5 phases) on the
+`pipelines/flux-omnigen2-deepgen` branch**, not yet merged here.
 
 ## Install
 
@@ -32,50 +35,47 @@ pip install -e ".[dev]"          # + pytest
 ```
 
 Requires `QWEN_BASE_MODEL_PATH` and `QWEN_FUSED_TRANSFORMER_PATH` set (same
-convention as `training_from_jupyter/qwen_bench_utils.py`) to use the Qwen
-adapter.
+convention as `training_from_jupyter/qwen_bench_utils.py` in the original
+`Qwen_JoS` repo this was extracted from) to use the Qwen adapter.
 
-**Known environment gotcha for `--parallel ddp`**: some `pip` environments
-have both `nvidia-nccl-cu12` and `nvidia-nccl-cu13` installed, which install
-to the identical path (`nvidia/nccl/lib/libnccl.so.2`) and silently
-overwrite each other -- surfaces as `NCCL error ... Cuda failure 'named
-symbol not found'` the first time anything opens a real
-`torch.distributed` process group (confirmed on BULL's `~/envs/qwen`,
-2026-10-11). Fix: `pip uninstall nvidia-nccl-cu13` then
-`pip install --force-reinstall --no-deps nvidia-nccl-cu12==<version torch
-was built against>`. `--parallel zero2` can still hit the same bug under
-DeepSpeed, for the same reason.
+**Known environment gotchas** (hit and fixed during verification, see the
+`pipelines/flux-omnigen2-deepgen` branch's README for the full writeup):
+a duplicate `nvidia-nccl-cu12`/`nvidia-nccl-cu13` install can silently
+break `--parallel ddp`/`zero2`, and DeepSpeed's `FusedAdam` optimizer can
+fail to JIT-compile on a GPU generation the installed CUDA toolkit doesn't
+target yet (worked around internally in `parallel/zero.py` via
+`torch_adam=True`, nothing to configure).
 
 ## Usage
 
 Every run is one `phase` of one `pipeline`, configured via flags (see
-`cachezero run --help`):
+`diffcache run --help`):
 
 ```bash
 # Phase 1: precompute + cache the frozen VLM/VAE to disk (1 GPU)
-cachezero run --pipeline qwen_image_edit --phase precompute \
+diffcache run --pipeline qwen_image_edit --phase precompute \
     --dataset-root /path/to/MultiViewVisibleThermalImagesHPE --num-samples 50 \
     --precomputed-dir ./precomputed_bench --dtype bf16
 
 # Phase 2: single-GPU reference, training on the cache above
-cachezero run --pipeline qwen_image_edit --phase finetune_cached \
+diffcache run --pipeline qwen_image_edit --phase finetune_cached \
     --precomputed-dir ./precomputed_bench --precision nf4 --steps 100
 
 # Baseline: live, no caching (2 GPUs for Qwen -- decided automatically by the adapter)
-cachezero run --pipeline qwen_image_edit --phase live \
+diffcache run --pipeline qwen_image_edit --phase live \
     --dataset-root /path/to/MultiViewVisibleThermalImagesHPE --num-samples 20 --steps 10
 
 # Baseline: live with prefetch (always 2 GPUs)
-cachezero run --pipeline qwen_image_edit --phase live_prefetch \
+diffcache run --pipeline qwen_image_edit --phase live_prefetch \
     --dataset-root /path/to/MultiViewVisibleThermalImagesHPE --num-samples 20 --steps 10
 
 # The proposed methodology: data-parallel training on the cache, ZeRO-2 (default)
 # Note: deepspeed's launcher needs --module (not python's own -m) to run a module.
-deepspeed --num_gpus=2 --module cachezero.cli run --pipeline qwen_image_edit \
+deepspeed --num_gpus=2 --module diffcache.cli run --pipeline qwen_image_edit \
     --phase data_parallel --parallel zero2 --precomputed-dir ./precomputed_bench --steps 100
 
 # ...or DDP instead of ZeRO-2 (same phase, different data-parallel backend)
-torchrun --nproc_per_node=2 -m cachezero.cli run --pipeline qwen_image_edit \
+torchrun --nproc_per_node=2 -m diffcache.cli run --pipeline qwen_image_edit \
     --phase data_parallel --parallel ddp --precomputed-dir ./precomputed_bench --steps 100
 ```
 
@@ -99,14 +99,16 @@ original `*_bench.py` scripts' reports) to `--report-path`, or
   `hardware.py`, written once against the small `PipelineAdapter` interface.
 - **ZeRO-2 is the default data-parallel backend** (`parallel/zero.py`,
   matching every experiment measured for the paper); **DDP**
-  (`parallel/ddp.py`) is a new, simpler alternative with no DeepSpeed
+  (`parallel/ddp.py`) is a simpler alternative with no DeepSpeed
   dependency. Both share `ParallelBackend.shard_batch` so a comparison
   between them is always apples-to-apples (same samples-per-step on each
   side).
-- **Nothing in `training_from_jupyter/` or `qwenimage/` was modified** --
-  this package copies and adapts the already-measured logic, it doesn't
-  import from those directories, so the paper's existing results stay
-  reproducible exactly as measured.
+- **Standalone repo, no dependency on the paper's own experiment scripts**
+  (`Qwen_JoS/training_from_jupyter/`, `Flux.1/`, `OmniGen2/`,
+  `DeepGen/precompute_live_zero2_bench/`, etc.) -- each adapter copies and
+  adapts the already-measured logic from those sibling projects rather than
+  importing it, so neither repo depends on the other and the paper's
+  existing results stay reproducible exactly as measured.
 
 ## Tests
 
@@ -115,8 +117,7 @@ pytest tests/   # no GPU/DeepSpeed required -- these are unit tests of the
                  # config/hardware-quirk/sharding logic, not end-to-end runs
 ```
 
-End-to-end verification (needs a GPU) is described in the project's plan
-file, not automated here yet: run `precompute`+`finetune_cached` and diff
-the resulting `.json` report against one produced by the original
+End-to-end verification (needs a GPU) is: run `precompute`+`finetune_cached`
+and diff the resulting `.json` report against one produced by the original
 `precompute_bench.py`/`finetune_precomputed_bench.py` with the same
 arguments.

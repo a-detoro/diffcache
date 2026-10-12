@@ -1,11 +1,11 @@
-"""`cachezero run ...` -- builds a RunConfig from CLI flags and dispatches it
+"""`diffcache run ...` -- builds a RunConfig from CLI flags and dispatches it
 via `runner.run`. For `--phase data_parallel`, launch under the matching
 distributed launcher (see parallel/zero.py, parallel/ddp.py docstrings):
 
-    deepspeed --num_gpus=2 --module cachezero.cli run --pipeline qwen_image_edit \\
+    deepspeed --num_gpus=2 --module diffcache.cli run --pipeline qwen_image_edit \\
         --phase data_parallel --parallel zero2 --precomputed-dir ./precomputed_bench
 
-    torchrun --nproc_per_node=2 -m cachezero.cli run --pipeline qwen_image_edit \\
+    torchrun --nproc_per_node=2 -m diffcache.cli run --pipeline qwen_image_edit \\
         --phase data_parallel --parallel ddp --precomputed-dir ./precomputed_bench
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .runner import run as run_phase
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="cachezero")
+    parser = argparse.ArgumentParser(prog="diffcache")
     # `deepspeed`'s launcher injects `--local_rank=N` ahead of the
     # subcommand for every spawned process (the old torch.distributed.launch
     # convention) -- accepted and ignored here, same as every original

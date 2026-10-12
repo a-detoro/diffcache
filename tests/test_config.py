@@ -1,4 +1,4 @@
-from cachezero.config import (
+from diffcache.config import (
     ParallelConfig,
     PrecisionConfig,
     RunConfig,

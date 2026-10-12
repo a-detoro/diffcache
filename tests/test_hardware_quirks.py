@@ -1,7 +1,7 @@
 import torch
 
-from cachezero import hardware
-from cachezero.config import PrecisionConfig
+from diffcache import hardware
+from diffcache.config import PrecisionConfig
 
 
 def test_volta_quirks_force_fp16_and_fp32_nf4_compute(monkeypatch):

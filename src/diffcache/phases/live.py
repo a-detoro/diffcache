@@ -118,7 +118,7 @@ def run(run_config: RunConfig, device_encode: str = "cuda:0", device_train: str 
     )
     return write_report(
         report_base,
-        title=f"cachezero -- live baseline ({run_config.pipeline}, two_gpu={two_gpu})",
+        title=f"diffcache -- live baseline ({run_config.pipeline}, two_gpu={two_gpu})",
         config={
             "pipeline": run_config.pipeline, "steps": n, "batch_size": run_config.batch_size,
             "device_encode": device_encode, "device_train": device_train,

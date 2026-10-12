@@ -69,7 +69,7 @@ def run(run_config: RunConfig, device: str = "cuda:0") -> dict:
     )
     return write_report(
         report_base,
-        title=f"cachezero -- precompute ({run_config.pipeline}, dtype={run_config.precision.storage_dtype})",
+        title=f"diffcache -- precompute ({run_config.pipeline}, dtype={run_config.precision.storage_dtype})",
         config={
             "pipeline": run_config.pipeline, "samples": n,
             "device": device, "device_name": torch.cuda.get_device_name(device),

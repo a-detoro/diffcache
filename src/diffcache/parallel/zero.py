@@ -11,7 +11,7 @@ partitioning doesn't compose with bitsandbytes' custom `Params4bit` tensors
 used by NF4 quantization, which is the trainable component's normal state in
 this framework. `config.ParallelConfig.zero_stage` only accepts 1 or 2.
 
-Launch with `deepspeed --num_gpus=N --module cachezero.cli ...` -- the
+Launch with `deepspeed --num_gpus=N --module diffcache.cli ...` -- the
 deepspeed launcher needs its own `--module` flag (not Python's bare `-m`)
 to run a module; see the package README.
 """
