@@ -30,7 +30,7 @@ def run(run_config: RunConfig, device: str = "cuda:0") -> dict:
     compute_dtype = TORCH_DTYPES[run_config.precision.resolved_compute_dtype()]
 
     precomputed_dir = run_config.precomputed_dir or os.path.join(os.getcwd(), "precomputed_bench")
-    paths, max_seq_len = load_precomputed_index(adapter, precomputed_dir)
+    paths, cache_index = load_precomputed_index(adapter, precomputed_dir)
     n_samples = len(paths)
 
     use_gc = resolve_gradient_checkpointing(run_config)
@@ -52,7 +52,7 @@ def run(run_config: RunConfig, device: str = "cuda:0") -> dict:
         batch_paths = [paths[(step * run_config.batch_size + i) % n_samples] for i in range(run_config.batch_size)]
 
         t_step0 = time.perf_counter()
-        batch_cpu = load_and_collate_batch(adapter, batch_paths, max_seq_len, dtype)
+        batch_cpu = load_and_collate_batch(adapter, batch_paths, cache_index, dtype)
         t_disk_read = (time.perf_counter() - t_step0) * 1000.0
 
         t0 = time.perf_counter()

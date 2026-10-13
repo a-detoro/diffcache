@@ -18,6 +18,7 @@ from ..datasets.base import collate_pils
 from ..dtypes import TORCH_DTYPES
 from ..hardware import apply_quirks
 from ..pipelines import get_adapter
+from ..prefetch import map_tensors
 from ..report import write_report
 from ..timing import mean_excluding_first
 
@@ -53,7 +54,10 @@ def run(run_config: RunConfig, device: str = "cuda:0") -> dict:
         t_encode = (time.perf_counter() - t0) * 1000.0
 
         save_path = os.path.join(output_dir, f"sample_{idx:04d}.pt")
-        torch.save({k: v.cpu() for k, v in cached.items()}, save_path)
+        # map_tensors (not a plain {k: v.cpu()}): some pipelines' encode_sample
+        # returns non-tensor metadata too (e.g. FLUX's latent_height/width
+        # ints), which a bare .cpu() call would crash on.
+        torch.save(map_tensors(cached, lambda t: t.cpu()), save_path)
 
         timings_ms.append(t_encode)
         vram_alloc.append(torch.cuda.memory_allocated(device) / 1e9)

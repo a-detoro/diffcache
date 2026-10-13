@@ -292,7 +292,7 @@ class QwenImageEditAdapter(PipelineAdapter):
         return FlowMatchEulerDiscreteScheduler.from_pretrained(base_model_path, subfolder="scheduler")
 
     def encode_sample(self, frozen: FrozenComponents, prompts: List[str], source_pils: List[Any],
-                       target_pils: List[Any], device: str, dtype: torch.dtype) -> Dict[str, torch.Tensor]:
+                       target_pils: List[Any], device: str, dtype: torch.dtype) -> Dict[str, Any]:
         condition_pils = [_pil_to_condition_pil(p, self.CONDITION_RESOLUTION) for p in source_pils]
         prompt_embeds, prompt_embeds_mask = _encode_prompt_live(
             frozen.text_encoder, frozen.processor, prompts, condition_pils, device, dtype
@@ -323,11 +323,12 @@ class QwenImageEditAdapter(PipelineAdapter):
             "prompt_embeds_mask": prompt_embeds_mask,
         }
 
-    def cache_max_seq_len(self, cached_items: List[Dict[str, torch.Tensor]]) -> int:
+    def cache_index(self, cached_items: List[Dict[str, Any]]) -> Any:
         return max(item["prompt_embeds"].shape[1] for item in cached_items)
 
-    def collate_cached(self, cached_items: List[Dict[str, torch.Tensor]], max_seq_len: int,
-                        dtype: torch.dtype) -> Dict[str, torch.Tensor]:
+    def collate_cached(self, cached_items: List[Dict[str, Any]], cache_index: Any,
+                        dtype: torch.dtype) -> Dict[str, Any]:
+        max_seq_len = cache_index
         target = torch.cat([it["target_latents_packed"] for it in cached_items], dim=0)
         source = torch.cat([it["source_latents_packed"] for it in cached_items], dim=0)
 

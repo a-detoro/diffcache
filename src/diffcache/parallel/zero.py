@@ -67,11 +67,35 @@ class ZeroBackend(ParallelBackend):
             "train_micro_batch_size_per_gpu": run_config.parallel.batch_size_per_gpu,
             "gradient_accumulation_steps": 1,
             "steps_per_print": 10_000_000,  # caller does its own logging
-            "zero_optimization": {"stage": zero_stage},
+            "zero_optimization": {
+                "stage": zero_stage,
+                # DeepSpeed's own defaults (500_000_000 elements each,
+                # ~1.9GiB fp32) size these allreduce/allgather buckets for
+                # models with hundreds of millions of trainable parameters.
+                # Every pipeline in this framework trains a LoRA adapter
+                # (5-47M params total across every tensor) -- confirmed
+                # OOMing on a 16GB card from this buffer alone, with the
+                # actual model nowhere near the memory limit otherwise.
+                # 20M elements (~80MB fp32) comfortably covers the largest
+                # LoRA adapter here with room to grow.
+                "reduce_bucket_size": 20_000_000,
+                "allgather_bucket_size": 20_000_000,
+            },
             "gradient_clipping": 1.0,
             "optimizer": {
                 "type": "AdamW",
-                "params": {"lr": run_config.learning_rate, "eps": 1e-6},
+                # torch_adam=True forces plain torch.optim.AdamW instead of
+                # DeepSpeed's fused CUDA kernel, which JIT-compiles via
+                # ninja+nvcc on first use -- fails on GPU generations the
+                # installed CUDA toolkit doesn't target yet (confirmed:
+                # "nvcc fatal: Unsupported gpu architecture 'compute_120'"
+                # on Blackwell with a 12.6 toolkit). Numerically identical,
+                # just not fused; with only a few million LoRA params this
+                # workload never exercised FusedAdam's actual speed
+                # advantage anyway. Unconditional, not hardware-detected:
+                # it's a portability default, not a correctness fix for one
+                # specific GPU generation.
+                "params": {"lr": run_config.learning_rate, "eps": 1e-6, "torch_adam": True},
             },
         }
 
