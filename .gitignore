@@ -10,3 +10,6 @@ reports/
 precomputed_bench/
 *.pt
 .DS_Store
+*.sbatch
+slurm_logs/
+bull_smoke/
